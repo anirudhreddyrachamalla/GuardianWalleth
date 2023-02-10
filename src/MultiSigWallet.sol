@@ -2,8 +2,11 @@
 pragma solidity ^0.8.17;
 
 import "./Common.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 contract MultiSigWallet is Common{
+    using SafeERC20 for IERC20;
     uint public immutable numOfConfirmationsRequired;
     address[] approversData;
     uint txIndex;
@@ -17,6 +20,8 @@ contract MultiSigWallet is Common{
         bytes data;
         bool executed;
         bool isDeleted;
+        uint transactionType;
+        address token;
     }
 
     mapping(address=>bool) isApprover;
@@ -65,19 +70,31 @@ contract MultiSigWallet is Common{
         emit MoneySent(msg.sender, address(this), msg.value);
     }
 
-    function initiateTransaction(address _to,uint _amount,bytes calldata _data) external returns(uint) {
-
+    function initiateTransaction(address _to,uint _amount,  uint _type, address _token,bytes calldata _data) external returns(uint) {
+        require(_to != address(0), "receiver address is 0x");
         uint _txIndex = txIndex;
-        bool isTransactionInitiatedByOwner = owner==tx.origin;//Doublt: does this make our contract more vulnerable?
-        require(isTransactionInitiatedByOwner,"Only owner can initaite a transaction");
+        require(_type == 1 || _type == 2, "invalid type");
+        if(_type == 1){
+            bool isTransactionInitiatedByOwner = owner==tx.origin;//Doublt: does this make our contract more vulnerable?
+            require(isTransactionInitiatedByOwner,"Only owner can initaite a transaction");
 
-        // uint contractBalance = address(this).balance;
-        // bool hasEnoughContractBalance = contractBalance >= _amount;
-        // require(hasEnoughContractBalance,"Not Enough Money in your wallet");
+            // uint contractBalance = address(this).balance;
+            // bool hasEnoughContractBalance = contractBalance >= _amount;
+            // require(hasEnoughContractBalance,"Not Enough Money in your wallet");
 
-        transactions.push(Transaction(_txIndex,_to,_amount, block.timestamp,1,_data,false, false));
-        isTransactionConfirmed[_txIndex][tx.origin] = true;
-        return _txIndex;
+            transactions.push(Transaction(_txIndex,_to,_amount, block.timestamp,1,_data,false, false, _type, address(0)));
+            isTransactionConfirmed[_txIndex][tx.origin] = true;
+            return _txIndex;
+        } else {
+            uint256 approvedTokens = IERC20(_token).allowance(owner, address(this));
+            require(approvedTokens >= _amount, "Not Authorized");
+            uint256 noOfTokens = IERC20(_token).balanceOf(owner); //msg.sender
+            require(noOfTokens >= _amount, "Owner doesn't have enough tokens");
+            // bool success = IERC20(_token).approve(address(this), 100);
+            transactions.push(Transaction(_txIndex,_to,_amount, block.timestamp,2,_data,false, false, _type, _token));
+            isTransactionConfirmed[_txIndex][tx.origin] = true;
+            return _txIndex;
+        }
     }
 
     function fetchApproverData()public view returns (address[] memory){
@@ -142,10 +159,17 @@ contract MultiSigWallet is Common{
 
     function publishTransaction(uint _txIndex) external {
         //TODO: check for sufficient balance.
-        require(transactions[_txIndex].confirmationsDone>= numOfConfirmationsRequired, "Need more approvals");
-        (bool sent, ) = transactions[_txIndex].to.call{value: transactions[_txIndex].amount}(transactions[_txIndex].data);
-        require(sent, "Failed to send Ether");
-        transactions[_txIndex].executed=true;
+        Transaction memory transaction = transactions[_txIndex];
+        require(transaction.confirmationsDone>= numOfConfirmationsRequired, "Need more approvals");
+        if(transaction.transactionType == 1){
+            (bool sent, ) = transaction.to.call{value: transactions[_txIndex].amount}(transactions[_txIndex].data);
+            require(sent, "Failed to send Ether");
+            transactions[_txIndex].executed=true;
+        }else{
+            bool sent = IERC20(transaction.token).safeTransferFrom(owner, transaction.to, transaction.amount);
+            require(sent, "Failed to send token");
+            transactions[_txIndex].executed=true;
+        }
     }
 
     function getNumberOfConfirmations() view external returns(uint){
