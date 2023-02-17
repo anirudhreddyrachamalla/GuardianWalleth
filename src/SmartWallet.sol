@@ -16,6 +16,18 @@ contract SmartWallet is Common{
         bool activated;
     }
 
+    enum transactionType {
+        None,
+        eth,
+        token
+    }
+
+    struct txDeposit{
+        uint256 amount;
+        uint256 timestamp;
+    }
+
+    mapping(transactionType => txDeposit) deposits;
     mapping(address => RecoveryWallet) wallets;
     mapping (address => address[]) approvingAddresses;
     mapping (address => address[]) guardingAddresses;
@@ -59,6 +71,20 @@ contract SmartWallet is Common{
        wallets[msg.sender] = RecoveryWallet(sRecovery, mWallet);
        emit WalletCreated(msg.sender, address(mWallet));
        //TODO: Store this mwallet address and listen to events in UI.
+    }
+
+    function deposit(uint256 _amount, address _token) external payable{
+        if(msg.value == _amount && _token == address(0)){
+            require(msg.value > 0, "zero ether");
+            (bool success, ) = msg.sender.call{value: _amount}();
+            require(success, "deposit failed");
+            deposits[1] = txDeposit(_amount, block.timestamp);
+        }else{
+            require(msg.value == 0 && _token != address(0), "invalid token data");
+            bool sent = IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+            require(sent, "failed to transfer token");
+            deposits[2] = txDeposit(_amount, block.timestamp);
+        }
     }
 
     // MultiSigWallet
