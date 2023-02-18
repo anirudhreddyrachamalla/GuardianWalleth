@@ -11,6 +11,20 @@ contract MultiSigWallet is Common{
     address[] approversData;
     uint txIndex;
 
+    enum TransactionType {
+        None,
+        Eth,
+        Token
+    }
+
+    struct TxDeposit{
+        uint256 Id;
+        uint256 amount;
+        uint256 timestamp;
+    }
+
+    mapping(TransactionType => TxDeposit) deposits;
+
     struct Transaction{
         uint transactionIndex;
         address to;
@@ -20,7 +34,7 @@ contract MultiSigWallet is Common{
         bytes data;
         bool executed;
         bool isDeleted;
-        uint transactionType;
+        TransactionType transactionType;
         address token;
     }
 
@@ -70,11 +84,23 @@ contract MultiSigWallet is Common{
         emit MoneySent(msg.sender, address(this), msg.value);
     }
 
-    function initiateTransaction(address _to,uint _amount,  uint _type, address _token,bytes calldata _data) external returns(uint) {
+    function depositEth(uint256 _amount) external{
+            (bool success, ) = payable(address(this)).call{value: _amount}();
+            require(success, "deposit failed");
+            deposits[1] = TxDeposit(_amount, block.timestamp);
+    }
+
+    function depositERC20(address _owner, uint256 _amount, address _token) external{
+            bool sent = IERC20(_token).safeTransferFrom(_owner, address(this), _amount);
+            require(sent, "failed to transfer token");
+            deposits[2] = TxDeposit(_amount, block.timestamp);
+    }
+
+    function initiateTransaction(address _to,uint _amount,  TransactionType _type, address _token,bytes calldata _data) external returns(uint) {
         require(_to != address(0), "receiver address is 0x");
         uint _txIndex = txIndex;
-        require(_type == 1 || _type == 2, "invalid type");
-        if(_type == 1){
+        require(_type == TransactionType.Eth || _type == TransactionType.Token, "invalid type");
+        if(_type == TransactionType.Eth){
             bool isTransactionInitiatedByOwner = owner==tx.origin;//Doublt: does this make our contract more vulnerable?
             require(isTransactionInitiatedByOwner,"Only owner can initaite a transaction");
 
@@ -86,11 +112,8 @@ contract MultiSigWallet is Common{
             isTransactionConfirmed[_txIndex][tx.origin] = true;
             return _txIndex;
         } else {
-            uint256 approvedTokens = IERC20(_token).allowance(owner, address(this));
-            require(approvedTokens >= _amount, "Not Authorized");
-            uint256 noOfTokens = IERC20(_token).balanceOf(owner); //msg.sender
+            uint256 noOfTokens = IERC20(_token).balanceOf(msg.sender); //msg.sender
             require(noOfTokens >= _amount, "Owner doesn't have enough tokens");
-            // bool success = IERC20(_token).approve(address(this), 100);
             transactions.push(Transaction(_txIndex,_to,_amount, block.timestamp,2,_data,false, false, _type, _token));
             isTransactionConfirmed[_txIndex][tx.origin] = true;
             return _txIndex;

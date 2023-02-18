@@ -15,19 +15,9 @@ contract SmartWallet is Common{
         address guardianAddress;
         bool activated;
     }
+            
 
-    enum transactionType {
-        None,
-        eth,
-        token
-    }
 
-    struct txDeposit{
-        uint256 amount;
-        uint256 timestamp;
-    }
-
-    mapping(transactionType => txDeposit) deposits;
     mapping(address => RecoveryWallet) wallets;
     mapping (address => address[]) approvingAddresses;
     mapping (address => address[]) guardingAddresses;
@@ -52,6 +42,8 @@ contract SmartWallet is Common{
     event ApprovalNotRequired(address approver, uint txIndex);
     event TransactionCompleted(address sender, uint _txIndex);
     event OwnerChanged(address guardian, address oldOwner, address newOwner);
+    event Deposit(uint256 _type, uint256 _amount,address _token);
+
     function createNewSmartWallet(address[] memory _guardians, 
     address[] memory _approvers, 
     uint _numConfirmationsRequired,
@@ -74,16 +66,14 @@ contract SmartWallet is Common{
     }
 
     function deposit(uint256 _amount, address _token) external payable{
-        if(msg.value == _amount && _token == address(0)){
+        if(msg.value == _amount){
             require(msg.value > 0, "zero ether");
-            (bool success, ) = msg.sender.call{value: _amount}();
-            require(success, "deposit failed");
-            deposits[1] = txDeposit(_amount, block.timestamp);
+            wallets[msg.sender].multiSigWallet.depositEth(_amount);
+            emit Deposit(1, _amount, address(0));
         }else{
-            require(msg.value == 0 && _token != address(0), "invalid token data");
-            bool sent = IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
-            require(sent, "failed to transfer token");
-            deposits[2] = txDeposit(_amount, block.timestamp);
+            require(msg.value == 0, "invalid token data");
+            wallets[msg.sender].multiSigWallet.depositERC20(owner, _amount, _token);
+            emit Deposit(2, _amount, _token);
         }
     }
 
