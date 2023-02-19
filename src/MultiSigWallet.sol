@@ -11,12 +11,6 @@ contract MultiSigWallet is Common{
     address[] approversData;
     uint txIndex;
 
-    enum TransactionType {
-        None,
-        Eth,
-        Token
-    }
-
     struct TxDeposit{
         uint256 amount;
         uint256 timestamp;
@@ -46,6 +40,7 @@ contract MultiSigWallet is Common{
 
     event MoneyReceived(address receiver, address sender, uint amount);
     event MoneySent(address sender, address receiver, uint amount);
+    event Deposit(TransactionType _type, uint256 _amount,address _token);
 
     constructor(uint _numOfConfirmationsRequired,address[] memory _approvers, uint _inactivePeriod,uint _transactionLimit) {
         owner = tx.origin;
@@ -84,8 +79,20 @@ contract MultiSigWallet is Common{
         emit MoneySent(msg.sender, address(this), msg.value);
     }
 
-    function depositERC20(address _owner, uint256 _amount, address _token) external{
+    function deposit(address _owner, uint256 _amount, address _token) external payable{
+        if(msg.value == _amount){
+            require(msg.value > 0);
+            emit Deposit(TransactionType.Eth, _amount, address(0));
+        }else{
+            require(msg.value == 0);
+            depositERC20(_owner, _amount, _token);
+            emit Deposit(TransactionType.Token, _amount, _token);
+        }
+    }
+
+    function depositERC20(address _owner, uint256 _amount, address _token) internal{
             IERC20(_token).safeTransferFrom(_owner, address(this), _amount);
+            // require(sent, "failed to transfer token");
             deposits[TransactionType.Token] = TxDeposit(_amount, block.timestamp);
     }
 
@@ -96,10 +103,6 @@ contract MultiSigWallet is Common{
         if(_type == TransactionType.Eth){
             bool isTransactionInitiatedByOwner = owner==tx.origin;//Doublt: does this make our contract more vulnerable?
             require(isTransactionInitiatedByOwner,"Only owner can initaite a transaction");
-
-            // uint contractBalance = address(this).balance;
-            // bool hasEnoughContractBalance = contractBalance >= _amount;
-            // require(hasEnoughContractBalance,"Not Enough Money in your wallet");
 
             transactions.push(Transaction(_txIndex,_to,_amount, block.timestamp,1,_data,false, false, _type, address(0)));
             isTransactionConfirmed[_txIndex][tx.origin] = true;
@@ -139,10 +142,6 @@ contract MultiSigWallet is Common{
 
         return transactions[_txIndex].confirmationsDone;
 
-        // emit TransactionPartiallyApproved(msg.sender,transactions[_txIndex].amount,transactions[_txIndex].confirmationsDone);
-        // if(transactions[_txIndex].confirmationsDone==numOfConfirmationsRequired){
-        //     publishTransaction(_txIndex); 
-        // }
     }
 
     function getStatusOfYourApproval(uint _txIndex) external view returns(bool) {
@@ -183,6 +182,7 @@ contract MultiSigWallet is Common{
             transactions[_txIndex].executed=true;
         }else{
             IERC20(transaction.token).safeTransfer(transaction.to, transaction.amount);
+            // require(sent, "Failed to send token");
             transactions[_txIndex].executed=true;
         }
     }
