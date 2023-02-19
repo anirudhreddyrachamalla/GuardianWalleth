@@ -9,4 +9,10 @@ contract Common{
         uint amount;
         bool voteStatus;
     }
+
+    enum TransactionType {
+        None,
+        Eth,
+        Token
+    }
 }
