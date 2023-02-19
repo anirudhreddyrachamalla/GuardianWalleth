@@ -15,6 +15,12 @@ contract SmartWallet is Common{
         address guardianAddress;
         bool activated;
     }
+            
+    enum TransactionType {
+        None,
+        Eth,
+        Token
+    }
 
     mapping(address => RecoveryWallet) wallets;
     mapping (address => address[]) approvingAddresses;
@@ -40,6 +46,8 @@ contract SmartWallet is Common{
     event ApprovalNotRequired(address approver, uint txIndex);
     event TransactionCompleted(address sender, uint _txIndex);
     event OwnerChanged(address guardian, address oldOwner, address newOwner);
+    event Deposit(uint256 _type, uint256 _amount,address _token);
+
     function createNewSmartWallet(address[] memory _guardians, 
     address[] memory _approvers, 
     uint _numConfirmationsRequired,
@@ -59,6 +67,19 @@ contract SmartWallet is Common{
        wallets[msg.sender] = RecoveryWallet(sRecovery, mWallet);
        emit WalletCreated(msg.sender, address(mWallet));
        //TODO: Store this mwallet address and listen to events in UI.
+    }
+
+    function deposit(uint256 _amount, address _token) external payable{
+        if(msg.value == _amount){
+            require(msg.value > 0, "zero ether");
+            (bool success, ) = wallets[msg.sender].multiSigWallet.call{value:_amount}();
+            require(success, "deposit failed");
+            emit Deposit(TransactionType.Eth, _amount, address(0));
+        }else{
+            require(msg.value == 0, "invalid token data");
+            wallets[msg.sender].multiSigWallet.depositERC20(owner, _amount, _token);
+            emit Deposit(TransactionType.Token, _amount, _token);
+        }
     }
 
     // MultiSigWallet
