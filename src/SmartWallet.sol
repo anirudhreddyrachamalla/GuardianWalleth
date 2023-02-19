@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 import "./MultiSigWallet.sol";
 import "./SocialRecovery.sol";
 import "./Common.sol";
+import "src/Swap.sol";
 
 contract SmartWallet is Common{
     struct RecoveryWallet{
@@ -40,8 +41,6 @@ contract SmartWallet is Common{
     event ApprovalNotRequired(address approver, uint txIndex);
     event TransactionCompleted(address sender, uint _txIndex);
     event OwnerChanged(address guardian, address oldOwner, address newOwner);
-    // event Deposit(TransactionType _type, uint256 _amount,address _token);
-
     function createNewSmartWallet(address[] memory _guardians, 
     address[] memory _approvers, 
     uint _numConfirmationsRequired,
@@ -53,7 +52,7 @@ contract SmartWallet is Common{
         guardingAddresses[_guardians[i]].push(msg.sender);
         emit GuardianAdded(msg.sender, _guardians[i]);
        }
-       MultiSigWallet mWallet = new MultiSigWallet(_numConfirmationsRequired, _approvers, _inactivePeriod, _transactionLimit);
+       MultiSigWallet mWallet = new MultiSigWallet(_numConfirmationsRequired, _approvers, _inactivePeriod, _transactionLimit,swapContractInstance);
        for (uint i = 0; i < _approvers.length; i++) {
         approvingAddresses[_approvers[i]].push(msg.sender);
         emit ApproverAdded(msg.sender, _approvers[i]);
@@ -240,5 +239,17 @@ contract SmartWallet is Common{
             }
         }
         return result;
+    }
+
+    // SWAP FEATURE
+    
+    
+    function swapAssests(
+        address tokenIn,
+        address tokenOut,
+        uint amountIn
+    ) external returns(bool success){
+        bool success = wallets[msg.sender].multiSigWallet.swapAssests(tokenIn,tokenOut,amountIn);
+        require(success,"swap didn't occur");
     }
 }

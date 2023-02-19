@@ -2,14 +2,16 @@
 pragma solidity ^0.8.17;
 
 import "./Common.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import "./interface/ISwap.sol";
 contract MultiSigWallet is Common{
     using SafeERC20 for IERC20;
     uint public immutable numOfConfirmationsRequired;
     address[] approversData;
     uint txIndex;
+    /* ISwap constant swap = ISwap() */
 
     struct TxDeposit{
         uint256 amount;
@@ -42,7 +44,9 @@ contract MultiSigWallet is Common{
     event MoneySent(address sender, address receiver, uint amount);
     event Deposit(TransactionType _type, uint256 _amount,address _token);
 
-    constructor(uint _numOfConfirmationsRequired,address[] memory _approvers, uint _inactivePeriod,uint _transactionLimit) {
+    ISwap immutable swapContractInstance;
+    constructor(uint _numOfConfirmationsRequired,address[] memory _approvers, uint _inactivePeriod,uint _transactionLimit,address _swapContractInstance) {
+        swapContractInstance = ISwap(_swapContractInstance);
         owner = tx.origin;
         isApprover[owner]=true;
         if(_numOfConfirmationsRequired>0){
@@ -215,7 +219,16 @@ contract MultiSigWallet is Common{
     function changeOwner(address newOwner) public{
         owner = newOwner;
     }
-
     //TODO: adding and removing approvers
 
+    function swapAssests(
+        address tokenIn,
+        address tokenOut,
+        uint amountIn
+    ) external returns(bool success){
+        uint amountOut = swapContractInstance.swap(tokenIn,tokenOut,amountIn);
+        success = amountOut>0;
+    }
 }
+
+
