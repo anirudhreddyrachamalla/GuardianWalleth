@@ -18,7 +18,6 @@ contract MultiSigWallet is Common{
     }
 
     struct TxDeposit{
-        uint256 Id;
         uint256 amount;
         uint256 timestamp;
     }
@@ -80,7 +79,7 @@ contract MultiSigWallet is Common{
         _;
     }
     receive() external payable{
-        deposits[TransactionType.Eth] = TxDeposit(_amount, block.timestamp);
+        deposits[TransactionType.Eth] = TxDeposit(msg.value, block.timestamp);
         emit MoneyReceived(address(this), msg.sender, msg.value);
         emit MoneySent(msg.sender, address(this), msg.value);
     }
@@ -92,8 +91,8 @@ contract MultiSigWallet is Common{
     // }
 
     function depositERC20(address _owner, uint256 _amount, address _token) external{
-            bool sent = IERC20(_token).safeTransferFrom(_owner, address(this), _amount);
-            require(sent, "failed to transfer token");
+            IERC20(_token).safeTransferFrom(_owner, address(this), _amount);
+            // require(sent, "failed to transfer token");
             deposits[TransactionType.Token] = TxDeposit(_amount, block.timestamp);
     }
 
@@ -185,13 +184,13 @@ contract MultiSigWallet is Common{
         //TODO: check for sufficient balance.
         Transaction memory transaction = transactions[_txIndex];
         require(transaction.confirmationsDone>= numOfConfirmationsRequired, "Need more approvals");
-        if(transaction.transactionType == 1){
+        if(transaction.transactionType == TransactionType.Eth){
             (bool sent, ) = transaction.to.call{value: transactions[_txIndex].amount}(transactions[_txIndex].data);
             require(sent, "Failed to send Ether");
             transactions[_txIndex].executed=true;
         }else{
-            bool sent = IERC20(transaction.token).safeTransfer(transaction.to, transaction.amount);
-            require(sent, "Failed to send token");
+            IERC20(transaction.token).safeTransfer(transaction.to, transaction.amount);
+            // require(sent, "Failed to send token");
             transactions[_txIndex].executed=true;
         }
     }
