@@ -16,7 +16,11 @@ contract SmartWallet is Common{
         bool activated;
     }
             
-
+    enum TransactionType {
+        None,
+        Eth,
+        Token
+    }
 
     mapping(address => RecoveryWallet) wallets;
     mapping (address => address[]) approvingAddresses;
@@ -68,12 +72,13 @@ contract SmartWallet is Common{
     function deposit(uint256 _amount, address _token) external payable{
         if(msg.value == _amount){
             require(msg.value > 0, "zero ether");
-            wallets[msg.sender].multiSigWallet.depositEth(_amount);
-            emit Deposit(1, _amount, address(0));
+            (bool success, ) = wallets[msg.sender].multiSigWallet.call{value:_amount}();
+            require(success, "deposit failed");
+            emit Deposit(TransactionType.Eth, _amount, address(0));
         }else{
             require(msg.value == 0, "invalid token data");
             wallets[msg.sender].multiSigWallet.depositERC20(owner, _amount, _token);
-            emit Deposit(2, _amount, _token);
+            emit Deposit(TransactionType.Token, _amount, _token);
         }
     }
 

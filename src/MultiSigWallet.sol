@@ -80,20 +80,21 @@ contract MultiSigWallet is Common{
         _;
     }
     receive() external payable{
+        deposits[TransactionType.Eth] = TxDeposit(_amount, block.timestamp);
         emit MoneyReceived(address(this), msg.sender, msg.value);
         emit MoneySent(msg.sender, address(this), msg.value);
     }
 
-    function depositEth(uint256 _amount) external{
-            (bool success, ) = payable(address(this)).call{value: _amount}();
-            require(success, "deposit failed");
-            deposits[1] = TxDeposit(_amount, block.timestamp);
-    }
+    // function depositEth(uint256 _amount) external{
+    //         (bool success, ) = payable(address(this)).call{value: _amount}();
+    //         require(success, "deposit failed");
+    //         deposits[TransactionType.Eth] = TxDeposit(_amount, block.timestamp);
+    // }
 
     function depositERC20(address _owner, uint256 _amount, address _token) external{
             bool sent = IERC20(_token).safeTransferFrom(_owner, address(this), _amount);
             require(sent, "failed to transfer token");
-            deposits[2] = TxDeposit(_amount, block.timestamp);
+            deposits[TransactionType.Token] = TxDeposit(_amount, block.timestamp);
     }
 
     function initiateTransaction(address _to,uint _amount,  TransactionType _type, address _token,bytes calldata _data) external returns(uint) {
@@ -189,7 +190,7 @@ contract MultiSigWallet is Common{
             require(sent, "Failed to send Ether");
             transactions[_txIndex].executed=true;
         }else{
-            bool sent = IERC20(transaction.token).safeTransferFrom(owner, transaction.to, transaction.amount);
+            bool sent = IERC20(transaction.token).safeTransfer(transaction.to, transaction.amount);
             require(sent, "Failed to send token");
             transactions[_txIndex].executed=true;
         }
