@@ -7,10 +7,10 @@ contract Swap{
     ISwapRouter constant router = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
     IUniswapV3Factory constant factory = IUniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984);
     enum FeeLevel {
-        LOWEST,
-        LOW,
-        MEDIUM,
-        HIGH
+        LOWEST, // 100
+        LOW, // 500
+        MEDIUM,//3000
+        HIGH//10000
     }   
 
     function getFeeLevelByValue(FeeLevel _fee) internal pure returns (uint24 feeInBasisPoints) {
