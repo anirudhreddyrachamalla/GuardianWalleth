@@ -84,15 +84,8 @@ contract MultiSigWallet is Common{
         emit MoneySent(msg.sender, address(this), msg.value);
     }
 
-    // function depositEth(uint256 _amount) external{
-    //         (bool success, ) = payable(address(this)).call{value: _amount}();
-    //         require(success, "deposit failed");
-    //         deposits[TransactionType.Eth] = TxDeposit(_amount, block.timestamp);
-    // }
-
     function depositERC20(address _owner, uint256 _amount, address _token) external{
             IERC20(_token).safeTransferFrom(_owner, address(this), _amount);
-            // require(sent, "failed to transfer token");
             deposits[TransactionType.Token] = TxDeposit(_amount, block.timestamp);
     }
 
@@ -190,7 +183,6 @@ contract MultiSigWallet is Common{
             transactions[_txIndex].executed=true;
         }else{
             IERC20(transaction.token).safeTransfer(transaction.to, transaction.amount);
-            // require(sent, "Failed to send token");
             transactions[_txIndex].executed=true;
         }
     }
