@@ -41,6 +41,16 @@ contract SmartWallet is Common{
     event ApprovalNotRequired(address approver, uint txIndex);
     event TransactionCompleted(address sender, uint _txIndex);
     event OwnerChanged(address guardian, address oldOwner, address newOwner);
+
+
+    event SwapCompleted(address tokenIn,address tokenOut,uint amountIn);
+    
+    Swap public swapContractInstance;
+    constructor() {
+        swapContractInstance = new Swap();
+    }
+
+
     function createNewSmartWallet(address[] memory _guardians, 
     address[] memory _approvers, 
     uint _numConfirmationsRequired,
@@ -52,7 +62,7 @@ contract SmartWallet is Common{
         guardingAddresses[_guardians[i]].push(msg.sender);
         emit GuardianAdded(msg.sender, _guardians[i]);
        }
-       MultiSigWallet mWallet = new MultiSigWallet(_numConfirmationsRequired, _approvers, _inactivePeriod, _transactionLimit,swapContractInstance);
+       MultiSigWallet mWallet = new MultiSigWallet(_numConfirmationsRequired, _approvers, _inactivePeriod, _transactionLimit,address(swapContractInstance));
        for (uint i = 0; i < _approvers.length; i++) {
         approvingAddresses[_approvers[i]].push(msg.sender);
         emit ApproverAdded(msg.sender, _approvers[i]);
@@ -251,5 +261,6 @@ contract SmartWallet is Common{
     ) external returns(bool success){
         bool success = wallets[msg.sender].multiSigWallet.swapAssests(tokenIn,tokenOut,amountIn);
         require(success,"swap didn't occur");
+        emit SwapCompleted(tokenIn,tokenOut,amountIn);
     }
 }

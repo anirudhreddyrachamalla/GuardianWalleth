@@ -26,7 +26,7 @@ contract SocialRecovery {
         require(owner == tx.origin, "Only Owner has entitlements to perform this action");
         _;
      }
-    constructor(address[] memory _guardians) public {
+    constructor(address[] memory _guardians)  {
         numActiveGuardians = _guardians.length;
         activatedGuardianList = _guardians;
         existingGuardianList = _guardians;

@@ -52,7 +52,9 @@ contract Swap{
         address tokenOut,
         uint amountIn
     ) external returns (uint amountOut){
-        IERC20(tokenIn).approve(address(router), amountIn);
+        // IERC20(tokenIn).allowance(msg.sender,)
+/*         function allowance(address owner, address spender) external view returns (uint256);
+ */        IERC20(tokenIn).approve(address(router), amountIn);
         (uint24 minimumFee,address poolAddress) = this.calculateMinimumFeeForPair(tokenIn,tokenOut);
 
         if(minimumFee==0 || poolAddress==address(0)){
