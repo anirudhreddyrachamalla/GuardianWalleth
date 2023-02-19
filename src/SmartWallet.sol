@@ -15,12 +15,6 @@ contract SmartWallet is Common{
         address guardianAddress;
         bool activated;
     }
-            
-    enum TransactionType {
-        None,
-        Eth,
-        Token
-    }
 
     mapping(address => RecoveryWallet) wallets;
     mapping (address => address[]) approvingAddresses;
@@ -46,7 +40,7 @@ contract SmartWallet is Common{
     event ApprovalNotRequired(address approver, uint txIndex);
     event TransactionCompleted(address sender, uint _txIndex);
     event OwnerChanged(address guardian, address oldOwner, address newOwner);
-    event Deposit(uint256 _type, uint256 _amount,address _token);
+    // event Deposit(TransactionType _type, uint256 _amount,address _token);
 
     function createNewSmartWallet(address[] memory _guardians, 
     address[] memory _approvers, 
@@ -70,21 +64,13 @@ contract SmartWallet is Common{
     }
 
     function deposit(uint256 _amount, address _token) external payable{
-        if(msg.value == _amount){
-            require(msg.value > 0, "zero ether");
-            (bool success, ) = wallets[msg.sender].multiSigWallet.call{value:_amount}();
-            require(success, "deposit failed");
-            emit Deposit(TransactionType.Eth, _amount, address(0));
-        }else{
-            require(msg.value == 0, "invalid token data");
-            wallets[msg.sender].multiSigWallet.depositERC20(owner, _amount, _token);
-            emit Deposit(TransactionType.Token, _amount, _token);
-        }
+
+        (wallets[msg.sender].multiSigWallet).deposit{value: _amount}(msg.sender, _amount, _token);
     }
 
     // MultiSigWallet
-    function initiateTransaction(address _to,uint _amount,bytes calldata _data) public {
-        uint txIndex = wallets[msg.sender].multiSigWallet.initiateTransaction(_to, _amount, _data);
+    function initiateTransaction(address _to,uint _amount, TransactionType _type, address _token, bytes calldata _data) public {
+        uint txIndex = wallets[msg.sender].multiSigWallet.initiateTransaction(_to, _amount, _type, _token, _data);
         uint numConfirmationsRequired = wallets[msg.sender].multiSigWallet.getNumberOfConfirmations();
         emit TransactionStatus(msg.sender, txIndex, 1, numConfirmationsRequired);
         address[] memory approvers = wallets[msg.sender].multiSigWallet.fetchApproverData();
@@ -197,7 +183,7 @@ contract SmartWallet is Common{
     }
     
     
-//-----------------Call on Login ----------------------------------------
+ //-----------------Call on Login ----------------------------------------
 
     
     function fetchGuardianData()public view returns (GuardianUIData[] memory){
